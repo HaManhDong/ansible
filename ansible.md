@@ -95,7 +95,7 @@ Thực hiện theo link tại [đây](http://docs.ansible.com/ansible/intro_gett
 <a name="ansible_architecture_and_configuration"></a>
 #### **2.4 Ansible architecture và configuration**
 
-![](https://image.prntscr.com/image/VarpslfwQc_NJ8MccwM0Pw.png)
+![](./img/ansible_architecture.png)
 
 Như ta đã thấy trong hình trên, ý tưởng chính của ansible đó là có 1 hoặc nhiều các trung tâm điều khiển (command center trong hình) từ nơi mà ta có thể phát ra các lệnh hoặc 1 tập lệnh thông qua playbook để chạy trên các remote servers.
 
