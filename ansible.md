@@ -23,12 +23,14 @@
 	* [5.1 Task include với Play include](#task_vs_play_include)
 	* [5.2 Dynamic include](#dynamic_include)
 - [6. Playbook role](#playbook_roles)
-	* [6.1 Cấu trúc của role](#struct_of_roles)
-	* [6.2 Chia role để cài WordPress](#install_wordPress)
+	* [6.1 Ansible galaxy](#ansible_galazy)
+	* [6.2 Cấu trúc của role](#struct_of_roles)
+	* [6.3 Thực hành với roles trong ansible](#practice_with_roles)
 - [7. Variables](#variable)
 	* [7.1 Variables trong playbook](#varibales_in_playbook)
 	* [7.2 Registering variable](#registering_variable)
-- [8. Best practices](#)
+- [8. Security management](#security_management)
+- [Tài liệu tham khảo](#references)
 
 -------
 
@@ -677,16 +679,16 @@ Bây giờ ta cùng đi tìm hiểu chi tiết các thành phần trong 1 role:
 
 Một điều nữa ta cần chú ý, đó là gần như tất cả các thư mục trong 1 role đều có file **main.yml**. Đây là file mặc định Ansible sẽ load khi ta include 1 role. Ví dụ khi ansible load role PHP mà ta vừa tạo, ansible sẽ load file roles/donghm.php/tasks/main.yml. Do đó ta có thể thêm các task 1 cách trực tiếp vào file này, hiawjc có thể định nghĩa các task trong các file khác, sau đó import vào file main.yml.
 
-<a name="install_wordPress"></a>
-#### **6.2 Chia role để cài WordPress**
+<a name="practice_with_roles"></a>
+#### **6.3 Thực hành với roles trong ansible**
 
-Sau khi đã tìm hiểu về cách tạo và cấu trúc của 1 role, bây giờ ta sẽ cùng tìm hiểu 1 ví dụ thực tế về cách kết hợp các role để thực hiện cài WordPress. Ta thực hiện tạo ra 3 role **nginx, mysql và wordpress** như sau:
+Sau khi đã tìm hiểu về cách tạo và cấu trúc của 1 role, bây giờ ta sẽ cùng tìm hiểu 1 số ví dụ thực tế về cách sử dụng role để thực hiện cài php, mysql và ngix. Ta thực hiện tạo ra 3 role **php, nginx, và mysql** như sau:
 
 ```sh
 $ cd /ansible_wordPress/roles
+$ ansible-galaxy init donghm.php
 $ ansible-galaxy init donghm.nginx
 $ ansible-galaxy init donghm.mysql
-$ ansible-galaxy init donghm.wordpress
 ```
 
 Bây giờ ta cùng quay lại thư mục ansible_wordPress và tạo file playbook.yml để import các role mới tạo vào, như sau:
@@ -698,7 +700,6 @@ Bây giờ ta cùng quay lại thư mục ansible_wordPress và tạo file playb
 	- donghm.php
 	- donghm.nginx
 	- donghm.mysql
-	- donghm.wordpress
   tasks:
 	- name: Install required packages
 	  ping:
@@ -1045,11 +1046,7 @@ Sau đó, ta cần thêm notify để gọi tới handler này trong role nginx,
   notify: restart nginx
 ```
 
-**donghm.wordpress**
- 
- Đây là role phức tạp nhất của chúng ta.
-
-(Docs...)
+(Continue: add role **donghm.wordpress** )
 
 
 <a name="variable"></a>
@@ -1116,7 +1113,7 @@ vars_files:
 Thông thường, trong trường hợp ta cần set value của 1 varibale dựa trên kết qủa của 1 task, thì ta phải tạo 1 ***registered variable*** sử dụng section register khi gọi tới 1 module. Dưới đây là 1 ví dụ về việc gán output của câu lệnh ***whoami*** vào 1 biến tên là ***login***
 ```sh
 - name: show return value of command module
-  hosts: testserver
+  hosts: vm1
   tasks:
     - name: capture output of whoami command
       command: whoami
@@ -1134,3 +1131,141 @@ Một số built-in variables trong ansible:
 - **groups**: tất cả các group mặc định cũng như group mà ta định nghĩa trong inventory file
 - **play_hosts**: 1 danh sách các inventory hostnames đang tương tác với play hiện tại
 - **ansible_version**: 1 dict chứa các thông tin về version của ansible.
+
+<a name="security_management"></a>
+### **8. Security management**
+
+Khi ta muốn sử dụng 1 tool nào đó thì ngoài các tính năng của tool đó thì 1 điều nữa mà ta cũng cần chú ý, đó là vấn đề bảo mật. 
+
+<a name="ansible_vault"></a>
+#### **8.1 Sử dụng Ansible vault** 
+
+**Ansible vault** là 1 tính năng của ansible cho phép ta mã hóa các thông tin mà ta không muốn người khác đọc được trong project. Trong thực tế thì ta không nên để các passwords (cũng như các thông tin nhạy cảm khác như private keys, SSL certificates, ...) dưới dạng văn bản thuần túy (plain text) trong project vì bất kì ai **check out** project cũng có thể thấy các thông tin này. Ansible vault sẽ giúp ta bảo vệ các thông tin này bằng cách mã hóa và giải mã chúng.
+
+Thuật toán mã hóa mặc định mà Ansible dùng đó là **AES**. Ansible vault hỗ trợ 2 chế độ, 1 là **interactive**: ta sẽ nhập các passwords trực tiếp cho ansible; 2 là chế độ **non-interactive**: ta sẽ tạo 1 file chứa các passwords và chỉ định cho ansible đọc trực tiếp file đó.
+
+Nếu chúng ta muốn sử dụng chế độ **interactive**, ta cần chạy câu lệnh sau:
+
+```sh
+donghm@donghm:~/ansible_vault$ ansible-vault create secret.yaml
+New Vault password: 1111
+Confirm New Vault password: 1111
+```
+
+Khi thực hiện câu lệnh trên, ta sẽ phải nhập mật khẩu cho ansible biết, sau đó sẽ mở 1 file text trong 1 editor nào đó (thông thường là **vi** hoặc **vim**) với nội dung rỗng để nhập nội dung nào đó vào. Trong ví dụ trên ta đã sử dụng mật khẩu là **1111** và text là **This is a password protected file**. Sau khi đã nhập nội dung text xong, ansible sẽ mã hóa password và lưu lại trong file **secret.yaml**, kiểm tra lại bằng cách:
+
+```sh
+donghm@donghm:~/ansible_vault$ cat secret.yaml 
+$ANSIBLE_VAULT;1.1;AES256
+62353833303638306231343230616136366639613338383234333938353161623032636365343162
+3530633333626566316361363764303262363165653162660a666131623766366630303039616661
+36633563643165393365343836396338313866653639323533373961333261663430653637646634
+6361336135303365610a363465633331633061626332353937656535663733326433373764636138
+33643636303437646131383533366264356163323439366137366561396262373630616230303566
+6161623036646134643339636565396139373263373461636661
+```
+
+Còn khi muốn sử dụng chế độ **non-interactive**, đầu tiên ta cần tạo ra 1 file ẩn có tên **.password** để chưa mật khẩu, mật khẩu được sử dụng ở đây là **1111**, bằng cách sử dụng lệnh sau:
+
+```sh
+$ echo '1111' > .password
+```
+
+Sau đó ta sẽ sử dụng parameter **--vault-password-file=/PATH/TO/YOUR_PASSWORD_FILE** để trỏ tới file lưu mật khẩu, ví dụ:
+
+```sh
+ansible-vault --vault-password-file=.password secret2.yaml
+```
+Sau đó cũng xuất hiện 1 file text rỗng trong editor, ta lại nhập lại text như trên **This is a password protected file**, sau đó kiểm tra lại nội dung file **secret2.yaml**:
+
+```sh
+donghm@donghm:~/ansible_vault$ cat secret2.yaml 
+$ANSIBLE_VAULT;1.1;AES256
+37303561373334636533383533653965626437343535643038343137353465623637653636333235
+3336313866343038356362623836326665666135613161350a613262353364623937323636313732
+31623033336134376330656261323033396365306335306265356533303665363264626338393039
+3436646462373964390a366466643535626535353333356138666430353432373765366261393636
+37666261616666326231633838306461363837366636353334376234313630396138666462616361
+3964363839633937373131353535646537376264366139353834
+```
+
+Trong trường hợp ta muốn xem lại nội dung của file text mà ta đã nhập, có thể sử dụng action **view** của **ansible_vault** sau:
+
+```sh
+donghm@donghm:~/ansible_vault$ ansible-vault --vault-password-file=.password view secret2.yaml 
+This is a password protected file
+```
+
+Khi muốn decrypt file **secret.yaml**, ta sử dụng action **decrypt** của **ansible-vault** như sau:
+
+```sh
+donghm@donghm:~/ansible_vault$ ansible-vault --vault-password-file=.password decrypt secret.yaml 
+Decryption successful
+donghm@donghm:~/ansible_vault$ cat secret.yaml 
+This is a password protected file
+```
+
+Ngoài ra ansible cũng hỗ trợ ta khả năng encrypt 1 file đã tồn tại:
+
+```sh
+donghm@donghm:~/ansible_vault$ ansible-vault --vault-password-file=.password encrypt secret.yaml
+Encryption successful
+donghm@donghm:~/ansible_vault$ cat secret.yaml 
+$ANSIBLE_VAULT;1.1;AES256
+39343137633038666664336139666330333430393464383065653066623833316361303932333835
+6633363739323663386438373633373061316364643634330a366466363734383163333333666164
+32356430383362343661643164633165343031623235363830633366643463343332353164653336
+6239623863643866310a626336383438383637336236393934653739323533306238643362303732
+37313265366264363137303365383366396665316461643364656338663736623839323839383265
+3137316631663962333232363830383034633662383434623766
+
+```
+
+Để thay đổi encryption key trong 1 file, ta có thể thực hiện thông qua 2 lệnh đó là: **decrypt** file **secret.yaml** với **old key** và sau đó **encrypt** lại với **new key**. Nhưng ansible-vault đã tạo 1 action **rekey** giúp ta đổi encrypt key. Để thay đổi encryption key, ta cần tạo 1 file **.newpassword** để chứa pass mới, thực hiện như sau:
+
+```sh
+donghm@donghm:~/ansible_vault$ cat secret.yaml 
+$ANSIBLE_VAULT;1.1;AES256
+62353833303638306231343230616136366639613338383234333938353161623032636365343162
+3530633333626566316361363764303262363165653162660a666131623766366630303039616661
+36633563643165393365343836396338313866653639323533373961333261663430653637646634
+6361336135303365610a363465633331633061626332353937656535663733326433373764636138
+33643636303437646131383533366264356163323439366137366561396262373630616230303566
+6161623036646134643339636565396139373263373461636661
+donghm@donghm:~/ansible_vault$ echo 2222 > .newpassword
+donghm@donghm:~/ansible_vault$ ansible-vault --vault-password-file=.password --new-vault-password-file=.newpassword rekey secret.yaml
+Rekey successful
+donghm@donghm:~/ansible_vault$ cat secret.yaml 
+$ANSIBLE_VAULT;1.1;AES256
+63666263313861366164313330353337663535303233663762303031626538346631343665313935
+3735303035656132626164333462643866363837346166650a653538386330666339646466646132
+63326662356135646663616364356130313838326263663265386462383366323031383265363739
+3939383263623639300a306230303135373731373764613865323832623032646663643834343464
+65376434613430363834643066373465623031393733613933346639663964303432393963666535
+3533376135373865313134306561666239356334356332346263
+```
+
+Ta có thể thấy kết quả sau khi rekey khác với encrypt key trước đó.
+
+<a name="vaults_and_playbooks"></a>
+#### **8.2 Vaults và playbooks** 
+
+Để sử dụng ansible vaults với các playbooks, ta cần dùng ansible-vault để decrypt password trong qúa trình run playbook, bằng cách sử dụng lệnh như sau:
+
+```sh
+$ ansible-playbook playbook.yml --vault-password-file .password
+```
+
+Tóm lại, nội dung trong file **.password** là một mật khẩu và nên phân quyền truy cập chỉ cho những người dùng có quyền chạy các ansible playbook.
+
+
+<a name="references"></a>
+### **Tài liệu tham khảo**
+
+------
+1. [Ansible: From Beginner to Pro - Michael Heap](#)
+2. [Learning Ansible 2 - Fabio Alessandro Locati](#)
+3. [Ansible: Up and Running - Lorin Hochstein](#)
+4. [Ansible documentation](http://docs.ansible.com/ansible/latest/index.html)
+
+------
